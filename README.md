@@ -25,6 +25,7 @@ yarn
 react-native eject
 react-native link react-native-gesture-handler
 react-native link react-native-config
+react-native link react-native-vector-icons
 ```
 
 3. Update `android/app/build.gradle` file to include React Native Config:
