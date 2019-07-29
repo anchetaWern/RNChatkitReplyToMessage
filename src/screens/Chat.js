@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
-import { GiftedChat } from 'react-native-gifted-chat';
+import { GiftedChat, Message } from 'react-native-gifted-chat';
 import { ChatManager, TokenProvider } from '@pusher/chatkit-client';
 import Config from 'react-native-config';
 
@@ -8,11 +8,17 @@ const CHATKIT_INSTANCE_LOCATOR_ID = Config.CHATKIT_INSTANCE_LOCATOR_ID;
 const CHATKIT_SECRET_KEY = Config.CHATKIT_SECRET_KEY;
 const CHATKIT_TOKEN_PROVIDER_ENDPOINT = Config.CHATKIT_TOKEN_PROVIDER_ENDPOINT;
 
+import ReplyToFooter from '../components/ReplyToFooter';
+import ChatBubbleWithReply from '../components/ChatBubbleWithReply';
+
 class Chat extends Component {
 
   state = {
     messages: [],
-    show_load_earlier: false
+    show_load_earlier: false,
+    show_reply_to_footer: false,
+    reply_to: null,
+    reply_to_msg: null
   };
 
 
@@ -92,6 +98,18 @@ class Chat extends Component {
       }
     };
 
+    if (text_parts.length > 1) {
+      const replying_to = text_parts[1].payload.content;
+      const replying_to_user = replying_to.match(/@[a-zA-Z0-9]+/g);
+      const reply_to = replying_to_user[0].substr(1);
+      const reply_to_msg = replying_to.replace(reply_to, '').substr(1);
+
+      Object.assign(msg_data, {
+        reply_to,
+        reply_to_msg
+      });
+    }
+
     return {
       message: msg_data
     };
@@ -115,11 +133,68 @@ class Chat extends Component {
           }}
           loadEarlier={show_load_earlier}
           onLoadEarlier={this.loadEarlierMessages}
+
+          onLongPress={this.onLongPress}
+          renderChatFooter={this.renderChatFooter}
+
+          renderMessage={this.renderMessage}
         />
       </View>
     );
   }
   //
+
+  renderMessage = (msg) => {
+    const { reply_to, reply_to_msg } = msg.currentMessage;
+    const renderBubble = (reply_to && reply_to_msg) ? this.renderPreview : null;
+
+    let modified_msg = {
+      ...msg,
+      renderBubble
+    };
+
+    return <Message {...modified_msg} />
+  }
+  //
+
+  renderPreview = (bubbleProps) => {
+    return (
+      <ChatBubbleWithReply {...bubbleProps} />
+    );
+  }
+
+
+  onLongPress = (context, message) => {
+    this.setState({
+      show_reply_to_footer: true,
+      reply_to: message.user.name,
+      reply_to_msg: message.text
+    });
+  }
+
+
+  renderChatFooter = () => {
+    const { show_reply_to_footer, reply_to, reply_to_msg } = this.state;
+    if (show_reply_to_footer) {
+      return (
+        <ReplyToFooter
+          reply_to={reply_to}
+          reply_to_msg={reply_to_msg}
+          closeFooter={this.closeReplyToFooter} />
+      );
+    }
+    return null;
+  }
+
+
+  closeReplyToFooter = () => {
+    this.setState({
+      show_reply_to_footer: false,
+      reply_to: null,
+      reply_to_msg: null
+    });
+  }
+
 
   loadEarlierMessages = async () => {
     this.setState({
@@ -164,10 +239,18 @@ class Chat extends Component {
   //
 
   onSend = async ([message]) => {
+    const { reply_to, reply_to_msg } = this.state;
     try {
       const message_parts = [
         { type: "text/plain", content: message.text }
       ];
+
+      if (reply_to && reply_to_msg) {
+        message_parts.push({
+          type: "text/plain",
+          content: `@${reply_to} ${reply_to_msg}`
+        });
+      }
 
       await this.currentUser.sendMultipartMessage({
         roomId: this.room_id,
@@ -177,6 +260,13 @@ class Chat extends Component {
     } catch (send_msg_err) {
       console.log("error sending message: ", send_msg_err);
     }
+
+    this.setState({
+      show_reply_to_footer: false,
+      reply_to: null,
+      reply_to_msg: null
+    });
+
   }
 
 }
