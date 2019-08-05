@@ -1,6 +1,8 @@
 # RNChatkitReplyToMessage
 A React Native Chat app which shows how to implement a "reply to message" feature.
 
+Full tutorial is available at: [https://pusher.com/tutorials/reply-message-react-native-chat](https://pusher.com/tutorials/reply-message-react-native-chat)
+
 ## Prerequisites
 
 -   React Native development environment
